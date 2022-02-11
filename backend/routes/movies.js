@@ -1,31 +1,13 @@
 const router = require('express').Router();
-const { celebrate, Joi } = require('celebrate');
 const {
   getMovies,
   createMovie,
   deleteMovie,
 } = require('../controllers/movies');
+const { moviesValidate, movieIdValidate } = require('../middlewares/validate');
 
 router.get('/movies', getMovies);
-router.post('/movies', celebrate({
-  body: Joi.object().keys({
-    country: Joi.string().required(),
-    director: Joi.string().required(),
-    duration: Joi.number().required(),
-    year: Joi.string().required().min(4).length(4),
-    description: Joi.string().required(),
-    image: Joi.string().required().pattern(new RegExp(/^(https?:\/\/)(www\.)?[\w-]+(\.[a-z])+[\w~!@#$%&*()-+=:;\\'",.?/]+#?/i)),
-    trailer: Joi.string().required().pattern(new RegExp(/^(https?:\/\/)(www\.)?[\w-]+(\.[a-z])+[\w~!@#$%&*()-+=:;\\'",.?/]+#?/i)),
-    thumbnail: Joi.string().required().pattern(new RegExp(/^(https?:\/\/)(www\.)?[\w-]+(\.[a-z])+[\w~!@#$%&*()-+=:;\\'",.?/]+#?/i)),
-    movieId: Joi.number().required(),
-    nameRU: Joi.string().required(),
-    nameEN: Joi.string().required(),
-  }),
-}), createMovie);
-router.delete('/movies/:movieId', celebrate({
-  params: Joi.object().keys({
-    movieId: Joi.string().required().length(24).hex(),
-  }),
-}), deleteMovie);
+router.post('/movies', moviesValidate, createMovie);
+router.delete('/movies/:movieId', movieIdValidate, deleteMovie);
 
 module.exports = router;

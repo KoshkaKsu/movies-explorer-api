@@ -6,16 +6,17 @@ const UnauthorizedError = require('../errors/unauthorized-err');
 const NotFoundError = require('../errors/not-found-error');
 const BadRequestError = require('../errors/bad-request-error');
 const ConflictError = require('../errors/conflict-error');
+const messages = require('../errors/errors-mesage');
 
 const { NODE_ENV, JWT_SECRET_KEY } = process.env;
 
 const getUsers = (req, res, next) => {
   User.findById(req.user._id)
-    .orFail(new NotFoundError('Пользователь с таким id не найден!'))
-    .then((user) => res.status(200).send(user))
+    .orFail(new NotFoundError(messages.notFoundError))
+    .then((user) => res.send(user))
     .catch((err) => {
       if (err.name === 'CastError') {
-        next(new BadRequestError('Некоректный запрос!'));
+        next(new BadRequestError(messages.badRequestError));
       } else next(err);
     });
 };
@@ -27,11 +28,13 @@ function updateProfile(req, res, next) {
     { name, email },
     { new: true, runValidators: true, upsert: false },
   )
-    .orFail(new NotFoundError('Пользователь с таким id не найден!'))
-    .then((user) => res.status(200).send(user))
+    .orFail(new NotFoundError(messages.notFoundError))
+    .then((user) => res.send(user))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        next(new BadRequestError('Переданы некоректные данные при обновления профиля!'));
+        next(new BadRequestError(messages.badRequestError));
+      } if (err.code === 11000) {
+        next(new ConflictError(messages.conflictError));
       } else {
         next(err);
       }
@@ -45,17 +48,16 @@ const createUser = (req, res, next) => {
   bcrypt.hash(password, 10).then((hash) => User.create({
     name, email, password: hash,
   }).then((user) => {
-    res.status(200).send({
+    res.send({
       name: user.name,
       email: user.email,
-      password: hash,
     });
   })
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        next(new BadRequestError('Переданы некоректные данные для создания пользователя!'));
+        next(new BadRequestError(messages.badRequestError));
       } else if (err.name === 'MongoError' && err.code === 11000) { //  случай, когда пользователь пытается зарегистрироваться по уже существующему в базе email
-        next(new ConflictError('Такой пользователь уже зарегистрирован!'));
+        next(new ConflictError(messages.conflictError));
       } else next(err);
     }));
 };
@@ -64,12 +66,12 @@ const loginUser = (req, res, next) => {
   const { email, password } = req.body;
   User.findOne({ email }).select('+password').then((user) => {
     if (!user) {
-      throw new UnauthorizedError('Неверная почта или пароль!');
+      throw new UnauthorizedError(messages.unauthorizedError);
     }
     return bcrypt.compare(password, user.password)
       .then((matched) => {
         if (!matched) {
-          throw new UnauthorizedError('Неверная почта или пароль!');
+          throw new UnauthorizedError(messages.unauthorizedError);
         }
         return user;
       });
@@ -81,8 +83,8 @@ const loginUser = (req, res, next) => {
     );
     res.send({ token });
   })
-    .catch((err) => {
-      next(new UnauthorizedError(`Произошла ошибка: ${err.message}`));
+    .catch(() => {
+      next(new UnauthorizedError(messages.unauthorizedError));
     });
 };
 
